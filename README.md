@@ -58,7 +58,8 @@ latotours/
 │       └── booking-cta.tsx   # Split panel with request form
 │
 ├── lib/
-│   └── data.ts               # Single source of truth: content + slug/detail helpers
+│   ├── data.ts               # Content source: arrays + slug/detail helpers
+│   └── content.ts            # Async content access layer (CMS-ready boundary)
 │
 ├── tailwind.config.ts        # Theme tokens (brand/accent/gray, shadows)
 ├── next.config.mjs           # Image formats (AVIF/WebP) + Unsplash remote pattern
@@ -80,6 +81,28 @@ The single source of truth for all content and lookups.
 
 **Content vs. presentation:** all copy and lists live here. Components only handle
 layout, so editing content never touches JSX.
+
+## Content access layer (`lib/content.ts`) — CMS-ready boundary
+
+Pages don't import `lib/data.ts` directly; they go through **async** accessor functions
+in `lib/content.ts`:
+
+- `getTours()`, `getTour(slug)`, `getTourWithDetails(slug)`
+- `getDestinations()`, `getDestination(slug)`, `getDestinationWithDetails(slug)`
+- `getExperiences()`, `getReviews()`, `getStats()`, `getHeroSlides()`, `getSocialProof()`
+- `getPartnerContent()`, `getCompany()`
+
+Today these simply return the local data from `lib/data.ts`. **This is the single
+boundary where a CMS plugs in** (Sanity, Payload, WordPress-headless, Keystatic): you
+only change the *inside* of these functions to `fetch()` from the CMS and map the
+response back into the existing `Tour` / `Destination` / … types. Pages and components
+that call them do not change, keeping the swap type-safe end to end.
+
+The **server pages** (`app/tours/[slug]`, `app/destinations/[slug]`, `app/partners`) are
+`async` and `await` this layer. The **home page's client sections** still import
+`lib/data.ts` directly (client components can't `await`); making those CMS-driven would
+mean `app/page.tsx` fetching via `content.ts` and passing data down as props — a
+follow-up refactor.
 
 ## App shell (`app/layout.tsx`)
 
@@ -116,7 +139,8 @@ day-by-day itinerary and an Included/Not-included block; destination pages add a
 gallery and a "Tours visiting X" grid (reusing `TourCard`).
 
 Each dynamic route uses `generateStaticParams` to prerender one page per item and
-`generateMetadata` for per-page SEO title/description.
+`generateMetadata` for per-page SEO title/description. Both fetch their content through
+the async `lib/content.ts` layer.
 
 ## Search
 
@@ -204,3 +228,19 @@ npm run lint     # lint
 - The `_backup/` folder holds unused reference components; keep it unimported so it
   doesn't ship in the bundle.
 - Images are hosted on Unsplash; self-host licensed photography for production.
+
+## Adding a CMS
+
+The groundwork is done: `lib/content.ts` is the CMS boundary. To connect one (e.g.
+Sanity, Payload, or headless WordPress):
+
+1. Install its client and add credentials to env vars (never commit them).
+2. Model the content to match the existing `Tour` / `Destination` / … types.
+3. Swap the bodies of the `lib/content.ts` functions to `fetch()` from the CMS and map
+   the response back into those types.
+4. Add the CMS image host to `next.config.mjs` `remotePatterns`.
+5. (Optional) Use ISR / on-demand revalidation so edits publish without a redeploy.
+
+The detail pages and partners page are already wired through this layer; the home
+page's client sections would need `app/page.tsx` to fetch and pass props to go fully
+CMS-driven.
