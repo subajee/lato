@@ -33,6 +33,7 @@ export function Tours() {
   const [active, setActive] = useState("All");
   const [sort, setSort] = useState("recommended");
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
   // Randomize order once on the client to avoid SSR hydration mismatch.
   const [ordered, setOrdered] = useState<Tour[]>(tours);
 
@@ -40,16 +41,34 @@ export function Tours() {
     setOrdered(shuffle(tours));
   }, []);
 
-  // Reset to the first page whenever the filter or sort changes.
+  // Listen for searches coming from the hero.
+  useEffect(() => {
+    const onSearch = (e: Event) => {
+      const q = (e as CustomEvent<string>).detail ?? "";
+      setQuery(q);
+      setActive("All");
+    };
+    window.addEventListener("tour-search", onSearch);
+    return () => window.removeEventListener("tour-search", onSearch);
+  }, []);
+
+  // Reset to the first page whenever the filter, sort, or query changes.
   useEffect(() => {
     setPage(1);
-  }, [active, sort]);
+  }, [active, sort, query]);
 
   const visible = useMemo(() => {
-    const filtered =
-      active === "All"
-        ? ordered
-        : ordered.filter((t) => t.category === active);
+    const q = query.trim().toLowerCase();
+    const filtered = ordered.filter((t) => {
+      const matchesCategory = active === "All" || t.category === active;
+      const matchesQuery =
+        !q ||
+        t.title.toLowerCase().includes(q) ||
+        t.location.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q);
+      return matchesCategory && matchesQuery;
+    });
 
     const sorted = [...filtered];
     switch (sort) {
@@ -72,7 +91,7 @@ export function Tours() {
         break;
     }
     return sorted;
-  }, [active, sort, ordered]);
+  }, [active, sort, ordered, query]);
 
   const totalPages = Math.max(1, Math.ceil(visible.length / PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -148,13 +167,36 @@ export function Tours() {
           </div>
         </div>
 
-        <p className="mt-5 text-sm text-gray-500">
-          Showing{" "}
-          <strong className="font-semibold text-gray-800">
-            {pageItems.length}
-          </strong>{" "}
-          of {visible.length} {visible.length === 1 ? "tour" : "tours"}
-        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <p className="text-sm text-gray-500">
+            Showing{" "}
+            <strong className="font-semibold text-gray-800">
+              {pageItems.length}
+            </strong>{" "}
+            of {visible.length} {visible.length === 1 ? "tour" : "tours"}
+          </p>
+          {query && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-3 pr-1.5 text-sm font-medium text-brand-700 ring-1 ring-brand-100">
+              &ldquo;{query}&rdquo;
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setQuery("")}
+                className="grid h-5 w-5 place-items-center rounded-full bg-brand-500/15 text-brand-600 transition-colors hover:bg-brand-500 hover:text-white"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.6}
+                  className="h-3 w-3"
+                >
+                  <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+                </svg>
+              </button>
+            </span>
+          )}
+        </div>
 
         {visible.length > 0 ? (
           <>
@@ -206,9 +248,21 @@ export function Tours() {
             )}
           </>
         ) : (
-          <p className="mt-4 text-sm text-gray-500">
-            No tours match this filter. Try another category.
-          </p>
+          <div className="mt-4 text-sm text-gray-500">
+            No tours match{query ? ` “${query}”` : " this filter"}. Try another
+            search or{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setActive("All");
+              }}
+              className="font-semibold text-brand-600 hover:text-brand-700"
+            >
+              clear filters
+            </button>
+            .
+          </div>
         )}
       </div>
     </section>

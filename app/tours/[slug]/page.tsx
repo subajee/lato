@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { tours, getTourBySlug, getTourDetails } from "@/lib/data";
+import { getTours, getTour, getTourWithDetails } from "@/lib/content";
 import {
   ClockIcon,
   UsersIcon,
@@ -11,7 +11,8 @@ import {
   ArrowIcon,
 } from "@/components/icons";
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const tours = await getTours();
   return tours.map((t) => ({ slug: t.slug }));
 }
 
@@ -21,7 +22,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const tour = getTourBySlug(slug);
+  const tour = await getTour(slug);
   if (!tour) return { title: "Tour not found — Lato Tours" };
   return {
     title: `${tour.title} — Lato Tours`,
@@ -35,12 +36,13 @@ export default async function TourPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const tour = getTourBySlug(slug);
-  if (!tour) notFound();
+  const data = await getTourWithDetails(slug);
+  if (!data) notFound();
+  const { tour, details } = data;
 
   const original = Math.round(tour.price * 1.25);
   const saving = original - tour.price;
-  const { highlights, itinerary, includes, excludes } = getTourDetails(tour);
+  const { highlights, itinerary, includes, excludes } = details;
 
   return (
     <>

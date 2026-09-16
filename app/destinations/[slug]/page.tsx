@@ -3,14 +3,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  destinations,
-  getDestinationBySlug,
-  getDestinationDetails,
-} from "@/lib/data";
+  getDestinations,
+  getDestination,
+  getDestinationWithDetails,
+} from "@/lib/content";
 import { TourCard } from "@/components/tour-card";
 import { StarIcon, MapPinIcon, ArrowIcon } from "@/components/icons";
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const destinations = await getDestinations();
   return destinations.map((d) => ({ slug: d.slug }));
 }
 
@@ -20,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const dest = getDestinationBySlug(slug);
+  const dest = await getDestination(slug);
   if (!dest) return { title: "Destination not found — Lato Tours" };
   return {
     title: `${dest.name}, Sri Lanka — Lato Tours`,
@@ -41,11 +42,11 @@ export default async function DestinationPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const dest = getDestinationBySlug(slug);
-  if (!dest) notFound();
+  const data = await getDestinationWithDetails(slug);
+  if (!data) notFound();
+  const { dest, details } = data;
 
-  const { about, highlights, gallery, relatedTours } =
-    getDestinationDetails(dest);
+  const { about, highlights, gallery, relatedTours } = details;
   const bestTime = bestTimeByCategory[dest.category] ?? "Year-round";
 
   return (

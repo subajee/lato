@@ -36,8 +36,9 @@ latotours/
 │   └── partners/page.tsx             # B2B partners page
 │
 ├── components/
-│   ├── navbar.tsx            # Sticky bar (client) — search, WhatsApp/Book icon buttons, mobile menu
+│   ├── navbar.tsx            # Sticky bar (client) — nav links, WhatsApp + Book icon buttons, mobile menu
 │   ├── footer.tsx            # Footer with company info + lotus floral background
+│   ├── hero-search.tsx       # Single-field search with autocomplete dropdown (client)
 │   ├── section-heading.tsx  # Eyebrow pill + title (reused site-wide)
 │   ├── filter-bar.tsx        # Controlled category pill row (active + onChange)
 │   ├── destination-card.tsx # Destination tile → links to /destinations/[slug]
@@ -46,11 +47,12 @@ latotours/
 │   ├── icons.tsx             # Inline SVG icon set (shaded/duotone)
 │   ├── motifs.tsx            # LotusMedallion — traditional Sri Lankan motif
 │   ├── travel-art.tsx        # Modern travel line-art scatter (backgrounds)
+│   ├── _backup/              # Unused reference components (e.g. old 3-field hero search)
 │   └── sections/
-│       ├── hero.tsx          # Slideshow banner + search + social proof (client)
+│       ├── hero.tsx          # Slideshow banner + HeroSearch + social proof (client)
 │       ├── stats-strip.tsx   # Trust stats bar (server — loads Sora, uses CountUp)
 │       ├── destinations.tsx  # Filterable destinations grid (client)
-│       ├── tours.tsx         # Filter + sort + pagination grid (client)
+│       ├── tours.tsx         # Filter + sort + pagination + hero-search listener (client)
 │       ├── experiences.tsx   # "Why book with Lato" bento layout
 │       ├── reviews.tsx       # Testimonial carousel (client)
 │       └── booking-cta.tsx   # Split panel with request form
@@ -95,7 +97,7 @@ layout, so editing content never touches JSX.
 
 A vertical stack of section components, top to bottom:
 
-1. **Hero** — full-bleed image slideshow (auto cross-fade, reduced-motion aware) with headline, segmented search bar, social proof, quick-search chips, and slide dots.
+1. **Hero** — full-bleed image slideshow (auto cross-fade, reduced-motion aware) with headline, a single-field **autocomplete search** (`HeroSearch`), social proof, quick-search chips, and slide dots.
 2. **StatsStrip** — trust bar with animated numbers and round icon tiles.
 3. **Destinations** — eyebrow heading + category filter + responsive card grid.
 4. **Tours** — heading + category filter + sort dropdown + pagination (6/page).
@@ -116,15 +118,33 @@ gallery and a "Tours visiting X" grid (reusing `TourCard`).
 Each dynamic route uses `generateStaticParams` to prerender one page per item and
 `generateMetadata` for per-page SEO title/description.
 
+## Search
+
+Search lives only in the hero (the navbar search was removed). `HeroSearch`
+(`components/hero-search.tsx`) is a single input with an **autocomplete dropdown** built
+from a flat index of all destinations + tours:
+
+- Typing shows up to 6 live suggestions (name + subtitle + a Destination/Tour badge),
+  with keyboard navigation (arrows / Enter / Escape).
+- Clicking a suggestion navigates to that `/tours/[slug]` or `/destinations/[slug]` page.
+- Submitting free text (Enter / Search button) or clicking a quick-search chip dispatches
+  a `tour-search` `CustomEvent`; the **Tours** section listens for it, applies the query as
+  a text filter (title/location/category/description), and the page scrolls to `#tours`.
+
+This event-based handoff keeps the two client components decoupled with no URL/param
+plumbing. The dropdown renders above other content (`z-50`), and the hero container
+avoids `overflow-hidden` so it isn't clipped.
+
 ## Server vs. client components
 
 Most components are **server components** (static, ship no JS). Only interactive pieces
 opt into `"use client"`:
 
-- `navbar.tsx` — mobile menu
+- `navbar.tsx` — mobile menu toggle
 - `hero.tsx` — slideshow rotation
+- `hero-search.tsx` — autocomplete search
 - `destinations.tsx` — category filtering
-- `tours.tsx` — filter + sort + pagination (randomizes order on mount)
+- `tours.tsx` — filter + sort + pagination + hero-search listener (randomizes order on mount)
 - `reviews.tsx` — carousel
 - `count-up.tsx` — scroll-triggered number animation
 
@@ -178,5 +198,9 @@ npm run lint     # lint
   with real data.
 - Tour itinerary/includes and the "Save %" pricing are template-generated; swap for
   real per-tour content.
-- Forms (booking, partner application, search) are UI-only — wire to a backend/API route.
+- Forms (booking, partner application) are UI-only — wire to a backend/API route.
+- Hero search works but matching is **substring-only** — no typo tolerance or synonyms
+  (e.g. "safari" won't match "wildlife"). Consider fuzzy match + synonym mapping.
+- The `_backup/` folder holds unused reference components; keep it unimported so it
+  doesn't ship in the bundle.
 - Images are hosted on Unsplash; self-host licensed photography for production.

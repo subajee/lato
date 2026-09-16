@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { FeatureIcon, ArrowIcon } from "@/components/icons";
-import {
-  partnerTypes,
-  partnerBenefits,
-  partnerStats,
-  accreditations,
-  company,
-} from "@/lib/data";
+import { getPartnerContent } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Partner with Lato Tours — Sri Lanka B2B travel",
@@ -18,7 +12,10 @@ export const metadata: Metadata = {
 const fieldClass =
   "rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100";
 
-export default function PartnersPage() {
+export default async function PartnersPage() {
+  const { partnerTypes, partnerBenefits, partnerStats, accreditations, company } =
+    await getPartnerContent();
+
   return (
     <>
       {/* Hero */}
